@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: production-dashboard
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --bind 0.0.0.0:$PORT app:app
+    envVars:
+      - key: MS_CLIENT_ID
+        sync: false
+      - key: GRAPH_FILE_PATH
+        sync: false
