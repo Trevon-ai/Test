@@ -41,7 +41,7 @@ MACHINE_TYPES = ["KONICA", "XEROX"]
 data_storage = {
     "df_hp": pd.DataFrame(),
     "df_xerox": pd.DataFrame(),
-    "machine": "HP",
+    "machine": "XEROX",  # Default to a machine in the MACHINE_TYPES list
 }
 
 # Microsoft Graph API configuration
@@ -640,19 +640,35 @@ def dashboard():
     # Use the lowercase machine name to access the corresponding dataframe
     df = data_storage.get(f"df_{machine.lower()}")
     
+    # Check if authentication is required
+    auth_required = current_token_info["access_token"] is None
+    
     # Fallback if the dataframe doesn't exist
-    if df is None:
+    if df is None or df.empty:
         df = pd.DataFrame(columns=['SO No', 'Job', 'PrdOrd', 'Time (hrs)', 'Qty', 'Print Priority', 'Delivery Expected'])
         
     return render_template_string(dashboard_html, 
                                   rows=df.to_dict(orient="records"), 
-                                  machine=machine)
+                                  machine=machine,
+                                  auth_required=auth_required)
+
+# Add an authentication status endpoint
+@app.route("/auth-status")
+def auth_status():
+    return jsonify({
+        "authenticated": current_token_info["access_token"] is not None,
+        "expires_at": current_token_info["expires_at"].isoformat() if current_token_info["expires_at"] else None,
+    })
 
 if __name__ == "__main__":
     # Initialize machine to first machine in the list if not already set
     if "machine" not in data_storage:
         data_storage["machine"] = MACHINE_TYPES[0] if MACHINE_TYPES else "XEROX"
 
+    # Start the background threads
     threading.Thread(target=main, daemon=True).start()
     threading.Thread(target=switch_machine, daemon=True).start()
-    app.run(host="0.0.0.0", port=8000, debug=False)
+    
+    # Use PORT environment variable for Render compatibility
+    port = int(os.environ.get("PORT", 8000))
+    app.run(host="0.0.0.0", port=port, debug=False)
